@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>View JSON Data</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      pre {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-5">
+      <h1>View JSON Data</h1>
+      <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+      <h3>{{ filename }}</h3>
+      <pre>{{ json_data }}</pre>
+    </div>
+  </body>
+</html>
