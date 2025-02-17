@@ -3,7 +3,7 @@ name: Deploy Website
 on:
   push:
     branches:
-      - main  # Change to your branch name if different
+      - main
 
 jobs:
   deploy:
@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Update to v4
 
       - name: Setup Pages
         uses: actions/configure-pages@v3
@@ -19,8 +19,7 @@ jobs:
       - name: Upload files
         uses: actions/upload-pages-artifact@v2
         with:
-          path: .  # Adjust if your site is inside a subfolder
+          path: .
 
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: actions/deploy-pages@v2
