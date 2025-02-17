@@ -1,54 +1,121 @@
-from flask import Flask, render_template, flash, redirect, url_for
+import flet as ft
 import os
 import json
 
-app = Flask(__name__)
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))  
-
-# Configuration
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'json'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# Create upload directory if it doesn't exist
-if not os.path.exists(UPLOAD_FOLDER):
-    try:
-        os.makedirs(UPLOAD_FOLDER)
-    except OSError as e:
-        flash(f'Error creating upload folder: {str(e)}')
+UPLOAD_FOLDER = "uploads"
+ALLOWED_EXTENSIONS = {"json"}
 
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@app.route('/')
-def index():
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        flash('Upload folder is not available')
-        return render_template('index.html', files=[])
+def main(page: ft.Page):
+    page.title = "Game Data Viewer"
+    page.scroll = "auto"
 
-    files = os.listdir(app.config['UPLOAD_FOLDER'])
-    files = [f for f in files if allowed_file(f)]
-    return render_template('index.html', files=files)
+    # Create upload directory if needed
+    if not os.path.exists(UPLOAD_FOLDER):
+        try:
+            os.makedirs(UPLOAD_FOLDER)
+        except Exception as e:
+            page.snack_bar = ft.SnackBar(ft.Text(f"Error creating upload folder: {str(e)}"))
+            page.snack_bar.open = True
+            page.update()
+
+    def show_index(message=None):
+        if message:
+            show_message(message)
+
+        files = []
+        if os.path.exists(UPLOAD_FOLDER):
+            files = [f for f in os.listdir(UPLOAD_FOLDER) if allowed_file(f)]
+
+        file_links = []
+        for file in files:
+            file_links.append(
+                ft.ListTile(
+                    title=ft.Text(file),
+                    on_click=lambda e, f=file: show_view(f),
+                )
+            )
+
+        upload_button = ft.ElevatedButton(
+            "Upload JSON File",
+            icon=ft.icons.UPLOAD_FILE,
+            on_click=lambda _: file_picker.pick_files(
+                allowed_extensions=["json"],
+                allow_multiple=False
+            )
+        )
+
+        content = ft.Column(
+            controls=[
+                ft.Row([
+                    ft.Text("Game Data Files", size=25),
+                    upload_button
+                ]),
+                ft.Divider(),
+                ft.Text("Available Files", size=20),
+                ft.ListView(file_links, height=300) if files else ft.Text("No files available"),
+            ]
+        )
+        page.clean()
+        page.add(content)
+
+    def show_view(filename):
+        try:
+            with open(os.path.join(UPLOAD_FOLDER, filename), "r") as f:
+                data = json.load(f)
+            json_data = json.dumps(data, indent=4)
+        except:
+            json_data = "Invalid JSON format"
+
+        view_content = ft.Column(
+            controls=[
+                ft.Row([
+                    ft.ElevatedButton("Back", on_click=lambda e: show_index()),
+                    ft.Text(f"Viewing: {filename}", size=20),
+                ]),
+                ft.Divider(),
+                ft.Container(
+                    ft.Text(json_data, selectable=True),
+                    bgcolor=ft.colors.GREY_100,
+                    padding=15,
+                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border_radius=5,
+                )
+            ]
+        )
+        page.clean()
+        page.add(view_content)
+
+    def show_message(message):
+        page.snack_bar = ft.SnackBar(ft.Text(message))
+        page.snack_bar.open = True
+
+    def on_file_upload(e: ft.FilePickerResultEvent):
+        if e.files:
+            file = e.files[0]
+            if allowed_file(file.name):
+                try:
+                    dest_path = os.path.join(UPLOAD_FOLDER, file.name)
+                    # In real app, save the file content here
+                    # For Unity integration, we'll handle actual file transfer later
+                    show_message(f"File {file.name} ready for upload!")
+                    show_index()
+                except Exception as ex:
+                    show_message(f"Upload error: {str(ex)}")
+            else:
+                show_message("Only JSON files are allowed!")
+
+    # Setup file picker
+    file_picker = ft.FilePicker(on_result=on_file_upload)
+    page.overlay.append(file_picker)
+
+    # Start with index
+    show_index()
 
 
-@app.route('/view/<filename>')
-def view_file(filename):
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.exists(file_path):
-        flash('File not found')
-        return redirect(url_for('index'))
-
-    try:
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-        json_data = json.dumps(data, indent=4)
-    except json.JSONDecodeError:
-        json_data = "Invalid JSON format"
-
-    return render_template('view.html', filename=filename, json_data=json_data)
-
-
-if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0')
+if __name__ == "__main__":
+    ft.app(target=main, view=ft.WEB_BROWSER)
