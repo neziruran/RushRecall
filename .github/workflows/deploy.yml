@@ -1,0 +1,26 @@
+name: Deploy Website
+
+on:
+  push:
+    branches:
+      - main  # Change to your branch name if different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Upload files
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: .  # Adjust if your site is inside a subfolder
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
