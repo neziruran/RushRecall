@@ -1,125 +1,127 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, flash, redirect, url_for, session
+from werkzeug.utils import secure_filename
 import os
 import json
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = 'daimonprox'  # Replace with a strong secret key
+app.secret_key = 'test'  # Replace with a strong secret key in production
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'json'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Ensure the upload folder exists
+# Create upload directory if it doesn't exist
 if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+    try:
+        os.makedirs(UPLOAD_FOLDER)
+    except OSError as e:
+        flash(f'Error creating upload folder: {str(e)}')
 
-# Hard-coded admin credentials
-ADMIN_USERNAME = 'admin'
-ADMIN_PASSWORD = 'Daimon.1907'
+# Hardcoded credentials for demo purposes (replace with proper authentication in production)
+ADMIN_CREDENTIALS = {'username': 'admin', 'password': 'admin123'}
 
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-# Login route for admin
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session['role'] = 'admin'
-            session['username'] = username
-            flash('Logged in as admin.')
-            return redirect(url_for('index'))
-        else:
-            flash('Invalid admin credentials.')
-            return redirect(url_for('login'))
-    return render_template('login.html')
-
-
-# Guest access route
-@app.route('/guest')
-def guest():
-    session['role'] = 'guest'
-    session['username'] = 'Guest'
-    flash('Logged in as guest.')
-    return redirect(url_for('index'))
-
-
-# Logout route
-@app.route('/logout')
-def logout():
-    session.clear()
-    flash('Logged out.')
-    return redirect(url_for('login'))
-
-
-# Main index route
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
-    # If not logged in, redirect to login page
-    if 'role' not in session:
-        return redirect(url_for('login'))
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        flash('Upload folder is not available')
+        return render_template('index.html', files=[])
 
-    # Handle file upload (only admin is allowed)
-    if request.method == 'POST':
-        if session.get('role') != 'admin':
-            flash('Only admin can upload files.')
-            return redirect(url_for('index'))
-        if 'jsonfile' not in request.files:
-            flash('No file part.')
-            return redirect(request.url)
-        file = request.files['jsonfile']
-        if file.filename == '':
-            flash('No file selected.')
-            return redirect(request.url)
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            flash(f'File "{filename}" successfully uploaded.')
-            return redirect(url_for('index'))
-
-    # List all uploaded JSON files
     files = os.listdir(app.config['UPLOAD_FOLDER'])
     files = [f for f in files if allowed_file(f)]
     return render_template('index.html', files=files)
 
 
-# Route to view a file's contents
-@app.route('/view/<filename>')
-def view_file(filename):
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.exists(filepath):
-        flash('File not found.')
-        return redirect(url_for('index'))
-    with open(filepath, 'r') as f:
-        try:
-            data = json.load(f)
-        except Exception as e:
-            data = {"error": "Invalid JSON", "details": str(e)}
-    json_formatted = json.dumps(data, indent=4)
-    return render_template('view.html', filename=filename, json_data=json_formatted)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        if username == ADMIN_CREDENTIALS['username'] and password == ADMIN_CREDENTIALS['password']:
+            session['username'] = username
+            session['role'] = 'admin'
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid credentials')
+    return render_template('login.html')
 
 
-# Route to delete a file (admin only)
-@app.route('/delete/<filename>', methods=['POST'])
-def delete_file(filename):
-    if session.get('role') != 'admin':
-        flash('Only admin can delete files.')
-        return redirect(url_for('index'))
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if os.path.exists(filepath):
-        os.remove(filepath)
-        flash(f'File "{filename}" deleted.')
-    else:
-        flash('File not found.')
+@app.route('/logout')
+def logout():
+    session.clear()
     return redirect(url_for('index'))
 
 
+@app.route('/guest')
+def guest():
+    session['username'] = 'Guest'
+    session['role'] = 'guest'
+    return redirect(url_for('index'))
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'role' not in session or session['role'] != 'admin':
+        flash('Unauthorized access')
+        return redirect(url_for('index'))
+
+    if 'jsonfile' not in request.files:
+        flash('No file part')
+        return redirect(url_for('index'))
+
+    file = request.files['jsonfile']
+    if file.filename == '':
+        flash('No selected file')
+        return redirect(url_for('index'))
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        flash(f'File {filename} uploaded successfully')
+    else:
+        flash('Only JSON files are allowed')
+
+    return redirect(url_for('index'))
+
+
+@app.route('/delete_file/<filename>', methods=['POST'])
+def delete_file(filename):
+    if 'role' not in session or session['role'] != 'admin':
+        flash('Unauthorized access')
+        return redirect(url_for('index'))
+
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        flash(f'File {filename} deleted successfully')
+    else:
+        flash('File not found')
+
+    return redirect(url_for('index'))
+
+
+@app.route('/view/<filename>')
+def view_file(filename):
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if not os.path.exists(file_path):
+        flash('File not found')
+        return redirect(url_for('index'))
+
+    try:
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        json_data = json.dumps(data, indent=4)
+    except json.JSONDecodeError:
+        json_data = "Invalid JSON format"
+
+    return render_template('view.html', filename=filename, json_data=json_data)
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False, host='0.0.0.0')
