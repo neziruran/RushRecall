@@ -1,8 +1,3 @@
 # Default ignored files
 /shelf/
 /workspace.xml
-__pycache__
-venv
-.env
-admin_pass.txt
-uploads/
