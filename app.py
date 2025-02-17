@@ -3,7 +3,7 @@ import os
 import json
 
 app = Flask(__name__)
-app.secret_key = 'test'  # Still needed for flash messages
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
