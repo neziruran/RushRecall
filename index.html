@@ -45,11 +45,8 @@
         }
 
         .main-container {
-            display: grid;
-            grid-template-columns: 1fr 300px;
+            display: flex;
             gap: 30px;
-            max-width: 1300px;
-            margin: 20px auto;
             position: relative;
             z-index: 2;
         }
@@ -58,16 +55,18 @@
             border: 3px solid var(--neon-pink);
             box-shadow: 0 0 20px var(--neon-pink);
             background: #000;
-            position: relative;
             width: 960px;
             height: 600px;
         }
 
-        .control-panel {
+        .instructions-panel {
             background: linear-gradient(145deg, #001919 0%, #000 100%);
             border: 2px solid var(--neon-cyan);
             padding: 25px;
             box-shadow: 0 0 15px var(--neon-cyan);
+            width: 300px;
+            height: 600px;
+            overflow-y: auto;
         }
 
         .section-title {
@@ -86,20 +85,17 @@
         }
 
         .credits {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: #000;
-            border-top: 2px solid var(--neon-pink);
+            margin-top: 20px;
             padding: 10px;
             text-align: center;
             z-index: 3;
+            width: 960px;
         }
 
         .credits span {
             margin: 0 25px;
             position: relative;
+            display: inline-block;
         }
 
         .credits span::after {
@@ -112,24 +108,14 @@
             content: none;
         }
 
-        input[type="text"], select {
-            background: #002020;
-            border: 1px solid var(--neon-cyan);
-            color: var(--neon-cyan);
-            padding: 8px;
-            margin: 5px 0;
-            width: 100%;
+        ul {
+            padding-left: 20px;
+            margin: 10px 0;
         }
 
-        button {
-            background: var(--neon-pink);
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            width: 100%;
-            margin: 10px 0;
-            font-weight: bold;
+        li {
+            margin: 8px 0;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -138,29 +124,28 @@
         <!-- Unity Container -->
         <div id="unity-container" class="unity-desktop">
             <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
-            <!-- Unity loading elements... -->
+            <div id="unity-loading-bar">
+                <div id="unity-logo"></div>
+                <div id="unity-progress-bar-empty">
+                    <div id="unity-progress-bar-full"></div>
+                </div>
+            </div>
+            <div id="unity-warning"></div>
+            <div id="unity-footer">
+                <div id="unity-webgl-logo"></div>
+                <div id="unity-fullscreen-button"></div>
+                <div id="unity-build-title">RushRecall</div>
+            </div>
         </div>
 
-        <!-- Control Panel -->
-        <div class="control-panel">
-            <h2>RUSH RECALL</h2>
+        <!-- Instructions Panel -->
+        <div class="instructions-panel">
+            <div class="section-title">OPERATION MANUAL</div>
             
-            <div class="input-group">
-                <input type="text" placeholder="Enter your name...">
-                <select>
-                    <option>Select Simulation Speed</option>
-                    <option>Slow</option>
-                    <option>Normal</option>
-                    <option>Fast</option>
-                </select>
-                <button>START</button>
-            </div>
-
-            <div class="section-title">1. OPERATION MANUAL</div>
             <div class="phase-box">
                 <h3>PHASE 1: SIMULATION</h3>
                 <ul>
-                    <li>Navigate through virtual city</li>
+                    <li>Navigate virtual city</li>
                     <li>Memorize yellow landmarks</li>
                     <li>Look around with mouse</li>
                     <li>Speed adjustable</li>
@@ -177,20 +162,18 @@
                 </ul>
             </div>
 
-            <div class="section-title">3. MODES</div>
+            <div class="section-title">GAME MODES</div>
             <ul>
                 <li><strong>PROCEDURAL:</strong> Random layouts</li>
                 <li><strong>REPEATED:</strong> Same level replay</li>
             </ul>
 
-            <div class="section-title">4. STRATEGY TIPS</div>
+            <div class="section-title">STRATEGY TIPS</div>
             <ul>
                 <li>Note landmark sequences</li>
                 <li>Use environmental cues</li>
                 <li>Watch timing patterns</li>
             </ul>
-
-            <div class="warning">SYSTEM TRACKING: All actions recorded</div>
         </div>
     </div>
 
@@ -200,9 +183,70 @@
         <span>ALP OZKAYIKCI ◆ DATA ANALYST</span>
     </div>
 
-    <!-- Original Unity Script (Unchanged) -->
     <script>
-        // Unity WebGL loader script remains identical to previous working version
+        var container = document.querySelector("#unity-container");
+        var canvas = document.querySelector("#unity-canvas");
+        var loadingBar = document.querySelector("#unity-loading-bar");
+        var progressBarFull = document.querySelector("#unity-progress-bar-full");
+        var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+        var warningBanner = document.querySelector("#unity-warning");
+
+        function unityShowBanner(msg, type) {
+            function updateBannerVisibility() {
+                warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+            }
+            var div = document.createElement('div');
+            div.innerHTML = msg;
+            warningBanner.appendChild(div);
+            if (type == 'error') div.style = 'background: red; padding: 10px;';
+            else {
+                if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+                setTimeout(function() {
+                    warningBanner.removeChild(div);
+                    updateBannerVisibility();
+                }, 5000);
+            }
+            updateBannerVisibility();
+        }
+
+        var buildUrl = "Build";
+        var loaderUrl = buildUrl + "/RushRecall.loader.js";
+        var config = {
+            dataUrl: buildUrl + "/RushRecall.data",
+            frameworkUrl: buildUrl + "/RushRecall.framework.js",
+            codeUrl: buildUrl + "/RushRecall.wasm",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "RTI",
+            productName: "RushRecall",
+            productVersion: "0.1",
+            showBanner: unityShowBanner,
+        };
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            container.className = "unity-mobile";
+            canvas.className = "unity-mobile";
+        } else {
+            canvas.style.width = "960px";
+            canvas.style.height = "600px";
+        }
+
+        loadingBar.style.display = "block";
+
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+                progressBarFull.style.width = 100 * progress + "%";
+            }).then((unityInstance) => {
+                loadingBar.style.display = "none";
+                fullscreenButton.onclick = () => {
+                    unityInstance.SetFullscreen(1);
+                };
+            }).catch((message) => {
+                alert(message);
+            });
+        };
+        document.body.appendChild(script);
     </script>
 </body>
 </html>
