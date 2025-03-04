@@ -15,13 +15,13 @@
 
       body {
         margin: 0;
-        padding: 20px;
+        padding: 0;
         background: var(--crt-bg);
         color: var(--neon-cyan);
         font-family: 'Courier New', monospace;
         min-height: 100vh;
         position: relative;
-        overflow-x: hidden;
+        overflow: hidden;
       }
 
       /* CRT Screen Effect */
@@ -38,30 +38,36 @@
           var(--scanline) 3px
         );
         pointer-events: none;
-        z-index: 999;
+        z-index: 1;
       }
 
-      .game-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        display: grid;
-        grid-template-columns: 1fr 300px;
-        gap: 30px;
+      .game-wrapper {
+        display: flex;
+        padding: 20px;
+        gap: 20px;
         position: relative;
+        z-index: 2;
       }
 
       #unity-container {
+        flex-shrink: 0;
         border: 3px solid var(--neon-pink);
         box-shadow: 0 0 15px var(--neon-pink);
-        border-radius: 5px;
-        overflow: hidden;
+        position: relative;
+      }
+
+      #unity-canvas {
+        width: 960px !important;
+        height: 600px !important;
       }
 
       .instructions {
         background: linear-gradient(145deg, #001919 0%, #000 100%);
         border: 2px solid var(--neon-cyan);
         padding: 20px;
+        max-width: 300px;
         position: relative;
+        overflow-y: auto;
       }
 
       .instructions::before {
@@ -117,6 +123,36 @@
         animation: glow 1.5s ease-in-out infinite;
       }
 
+      .credits {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #000;
+        border-top: 2px solid var(--neon-pink);
+        padding: 10px 20px;
+        font-size: 0.9em;
+        text-align: center;
+        z-index: 3;
+        box-shadow: 0 -5px 15px rgba(240, 0, 240, 0.3);
+      }
+
+      .credits span {
+        display: inline-block;
+        margin: 0 25px;
+        position: relative;
+      }
+
+      .credits span::after {
+        content: "◆";
+        color: var(--neon-cyan);
+        margin-left: 25px;
+      }
+
+      .credits span:last-child::after {
+        content: none;
+      }
+
       @keyframes glow {
         0%, 100% { text-shadow: 0 0 5px #ff0; }
         50% { text-shadow: 0 0 20px #ff0; }
@@ -124,11 +160,21 @@
     </style>
   </head>
   <body>
-    <div class="game-container">
+    <div class="game-wrapper">
       <div id="unity-container" class="unity-desktop">
-        <!-- Unity elements remain unchanged -->
         <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
-        <!-- ... Unity loading elements ... -->
+        <div id="unity-loading-bar">
+          <div id="unity-logo"></div>
+          <div id="unity-progress-bar-empty">
+            <div id="unity-progress-bar-full"></div>
+          </div>
+        </div>
+        <div id="unity-warning"></div>
+        <div id="unity-footer">
+          <div id="unity-webgl-logo"></div>
+          <div id="unity-fullscreen-button"></div>
+          <div id="unity-build-title">RushRecall</div>
+        </div>
       </div>
 
       <div class="instructions">
@@ -173,9 +219,81 @@
       </div>
     </div>
 
-    <!-- Original Unity script remains unchanged -->
+    <div class="credits">
+      <span>NEZİR URAN ◆ GAME PROGRAMMER</span>
+      <span>JENNİFER WARBECK ◆ DESİGNER</span>
+      <span>ALP OZKAYIKCI ◆ DATA ANALYST</span>
+    </div>
+
     <script>
-      // Original Unity WebGL loader script
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      var warningBanner = document.querySelector("#unity-warning");
+
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/RushRecall.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/RushRecall.data",
+        frameworkUrl: buildUrl + "/RushRecall.framework.js",
+        codeUrl: buildUrl + "/RushRecall.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "RTI",
+        productName: "RushRecall",
+        productVersion: "0.1",
+        showBanner: unityShowBanner,
+      };
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        container.className = "unity-mobile";
+        canvas.className = "unity-mobile";
+      } else {
+        canvas.style.width = "960px";
+        canvas.style.height = "600px";
+      }
+
+      loadingBar.style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          loadingBar.style.display = "none";
+          fullscreenButton.onclick = () => {
+            unityInstance.SetFullscreen(1);
+          };
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+
+      document.body.appendChild(script);
     </script>
   </body>
 </html>
