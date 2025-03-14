@@ -1,331 +1,380 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>RUSH RECALL</title>
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Chat Room</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
     <style>
-        :root {
-            --neon-cyan: #0ff;
-            --neon-pink: #f0f;
-            --crt-bg: #000;
-            --scanline: rgba(0, 255, 0, 0.1);
-            --retro-purple: #ff00ff;
-            --retro-blue: #00ffff;
-        }
-
         body {
-            margin: 0;
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
             padding: 20px;
-            background: var(--crt-bg);
-            color: var(--neon-cyan);
-            font-family: 'Courier New', monospace;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            position: relative;
-            overflow: auto;
+            background-color: #f5f5f5;
         }
-
-        /* Retro Title */
-        .retro-title {
-            font-family: 'Press Start 2P', cursive;
-            font-size: 4rem;
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
             text-align: center;
-            margin: 20px 0 40px;
-            text-transform: uppercase;
-            background: linear-gradient(45deg, var(--neon-pink), var(--neon-cyan));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 20px var(--neon-pink),
-                         0 0 30px var(--neon-cyan),
-                         0 0 40px var(--neon-pink);
-            animation: title-glow 1.5s ease-in-out infinite alternate;
-            position: relative;
-            z-index: 5;
         }
-
-        /* Dynamic Background Elements */
-        .retro-grid {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none;
-            background: 
-                linear-gradient(transparent 90%, rgba(0, 255, 0, 0.1)),
-                repeating-linear-gradient(
-                    90deg,
-                    rgba(255, 0, 255, 0.1) 0px,
-                    rgba(255, 0, 255, 0.1) 40px,
-                    transparent 40px,
-                    transparent 80px
-                );
-        }
-
-        .floating-shapes {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-        }
-
-        .floating-shapes div {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background: linear-gradient(45deg, var(--retro-purple), var(--retro-blue));
-            animation: float 20s infinite linear;
-            opacity: 0.3;
-            border-radius: 50%;
-        }
-
-        @keyframes float {
-            0% { transform: rotate(0deg) translateX(0) translateY(0); }
-            100% { transform: rotate(360deg) translateX(100vw) translateY(100vh); }
-        }
-
-        @keyframes title-glow {
-            from { text-shadow: 0 0 10px var(--neon-pink); }
-            to { text-shadow: 0 0 30px var(--neon-cyan); }
-        }
-
-        /* CRT Effect */
-        body::after {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(
-                0deg,
-                transparent 0px,
-                var(--scanline) 3px
-            );
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .main-container {
-            display: flex;
-            gap: 30px;
-            position: relative;
-            z-index: 2;
-        }
-
-        #unity-container {
-            border: 3px solid var(--neon-pink);
-            box-shadow: 0 0 20px var(--neon-pink);
-            background: #000;
-            width: 960px;
-            height: 600px;
-            position: relative;
-            z-index: 3;
-        }
-
-        .instructions-panel {
-            background: linear-gradient(145deg, #001919 0%, #000 100%);
-            border: 2px solid var(--neon-cyan);
-            padding: 25px;
-            box-shadow: 0 0 15px var(--neon-cyan);
-            width: 300px;
-            height: 600px;
-            overflow-y: auto;
-            position: relative;
-            z-index: 3;
-        }
-
-        .section-title {
-            color: var(--neon-pink);
-            border-bottom: 2px solid var(--neon-cyan);
-            padding-bottom: 10px;
-            margin: 20px 0;
-            text-transform: uppercase;
-        }
-
-        .phase-box {
-            background: #001010;
-            border: 1px solid var(--neon-cyan);
-            padding: 15px;
-            margin: 15px 0;
-        }
-
-        .credits {
-            margin: 30px 0;
-            padding: 15px;
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 15px;
             text-align: center;
-            width: 960px;
-            background: #000;
-            border: 5px solid var(--neon-pink);
-            position: relative;
-            z-index: 4;
-        }
-
-        .credits span {
-            margin: 0 5px;
-            position: relative;
+            text-decoration: none;
             display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
         }
-
-        .credits span::after {
-            content: "";
-            color: var(--neon-cyan);
-            margin-left: 25px;
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
-
-        .credits span:last-child::after {
-            content: none;
-        }
-
-        ul {
-            padding-left: 20px;
-            margin: 10px 0;
-        }
-
-        li {
+        input {
+            padding: 8px;
             margin: 8px 0;
-            line-height: 1.4;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            width: 100%;
         }
-
-        #unity-canvas {
-            width: 960px !important;
-            height: 600px !important;
+        .status {
+            color: #666;
+            font-style: italic;
+        }
+        #leaveBtn {
+            background-color: #f44336;
+        }
+        .hidden {
+            display: none;
+        }
+        #participants {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .participant {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            margin: 5px 0;
+            background-color: #e9e9e9;
+            border-radius: 4px;
+        }
+        .participant-name {
+            flex-grow: 1;
+            margin-left: 5px;
+        }
+        .participant-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+        }
+        .room-info {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 5px;
+            background-color: #e9e9e9;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
-    <div class="retro-grid"></div>
-    <div class="floating-shapes">
-        <div style="left:10%;top:20%"></div>
-        <div style="left:30%;top:50%"></div>
-        <div style="left:70%;top:30%"></div>
-        <div style="left:90%;top:70%"></div>
-    </div>
-    
-    <h1 class="retro-title">RUSH RECALL</h1>
-
-    <div class="main-container">
-        <div id="unity-container" class="unity-desktop">
-            <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
-            <div id="unity-loading-bar">
-                <div id="unity-logo"></div>
-                <div id="unity-progress-bar-empty">
-                    <div id="unity-progress-bar-full"></div>
-                </div>
+    <div class="container">
+        <h1>Voice Chat Room</h1>
+        
+        <div id="joinArea">
+            <div>
+                <label for="nameInput">Your Name:</label>
+                <input type="text" id="nameInput" placeholder="Enter your name">
             </div>
-            <div id="unity-warning"></div>
-            <div id="unity-footer">
-                <div id="unity-webgl-logo"></div>
-                <div id="unity-fullscreen-button"></div>
-                <div id="unity-build-title">RushRecall</div>
+            <div>
+                <label for="roomInput">Room ID:</label>
+                <input type="text" id="roomInput" placeholder="Enter room ID or leave blank for new room">
+            </div>
+            <button id="joinBtn">Join Room</button>
+            <p class="status" id="joinStatus"></p>
+        </div>
+        
+        <div id="roomArea" class="hidden">
+            <div class="room-info">
+                <h3>Room: <span id="roomId"></span></h3>
+                <p>Share this room ID with friends to invite them</p>
+            </div>
+            
+            <div id="controls">
+                <button id="muteBtn">Mute</button>
+                <button id="leaveBtn">Leave Room</button>
+            </div>
+            
+            <div id="participants">
+                <h3>Participants:</h3>
+                <div id="participantsList"></div>
             </div>
         </div>
-
-        <div class="instructions-panel">            
-            <div class="phase-box">
-                <h3>PHASE 1: SIMULATION</h3>
-                <ul>
-                    <li>Navigate virtual city</li>
-                    <li>Memorize yellow landmarks</li>
-                    <li>Look around with mouse</li>
-                    <li>Speed adjustable</li>
-                </ul>
-            </div>
-
-            <div class="phase-box">
-                <h3>PHASE 2: RECALL</h3>
-                <ul>
-                    <li>Place landmarks on grid</li>
-                    <li>LMB: Place/Select</li>
-                    <li>RMB: Deselect</li>
-                    <li>Drag to reposition</li>
-                </ul>
-            </div>
-            <div class="section-title">STRATEGY TIPS</div>
-            <ul>
-                <li>Note landmark sequences</li>
-                <li>Use environmental cues</li>
-                <li>Watch timing patterns</li>
-            </ul>
-        </div>
-    </div>
-
-    <div class="credits">
-        <span>NEZIR URAN - GAME PROGRAMMER</span>
-        <span>JENNIFER WARBECK - DESIGNER</span>
-        <span>ALP OZKAYIKCI - DATA ANALYST</span>
     </div>
 
     <script>
-        var container = document.querySelector("#unity-container");
-        var canvas = document.querySelector("#unity-canvas");
-        var loadingBar = document.querySelector("#unity-loading-bar");
-        var progressBarFull = document.querySelector("#unity-progress-bar-full");
-        var fullscreenButton = document.querySelector("#unity-fullscreen-button");
-        var warningBanner = document.querySelector("#unity-warning");
+        // DOM Elements
+        const nameInput = document.getElementById('nameInput');
+        const roomInput = document.getElementById('roomInput');
+        const joinBtn = document.getElementById('joinBtn');
+        const joinStatus = document.getElementById('joinStatus');
+        const joinArea = document.getElementById('joinArea');
+        const roomArea = document.getElementById('roomArea');
+        const roomIdDisplay = document.getElementById('roomId');
+        const muteBtn = document.getElementById('muteBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const participantsList = document.getElementById('participantsList');
 
-        function unityShowBanner(msg, type) {
-            function updateBannerVisibility() {
-                warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        // Variables
+        let peer;
+        let roomId;
+        let userName;
+        let localStream;
+        let connections = {};
+        let audioElements = {};
+        let isMuted = false;
+
+        // Join or create a room
+        joinBtn.addEventListener('click', () => {
+            userName = nameInput.value.trim();
+            if (!userName) {
+                joinStatus.textContent = 'Please enter your name';
+                return;
             }
-            var div = document.createElement('div');
-            div.innerHTML = msg;
-            warningBanner.appendChild(div);
-            if (type == 'error') div.style = 'background: red; padding: 10px;';
-            else {
-                if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-                setTimeout(function() {
-                    warningBanner.removeChild(div);
-                    updateBannerVisibility();
-                }, 5000);
-            }
-            updateBannerVisibility();
-        }
 
-        var buildUrl = "Build";
-        var loaderUrl = buildUrl + "/RushRecall.loader.js";
-        var config = {
-            dataUrl: buildUrl + "/RushRecall.data",
-            frameworkUrl: buildUrl + "/RushRecall.framework.js",
-            codeUrl: buildUrl + "/RushRecall.wasm",
-            streamingAssetsUrl: "StreamingAssets",
-            companyName: "RTI",
-            productName: "RushRecall",
-            productVersion: "0.1",
-            showBanner: unityShowBanner,
-        };
-
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-            container.className = "unity-mobile";
-            canvas.className = "unity-mobile";
-        } else {
-            canvas.style.width = "960px";
-            canvas.style.height = "600px";
-        }
-
-        loadingBar.style.display = "block";
-
-        var script = document.createElement("script");
-        script.src = loaderUrl;
-        script.onload = () => {
-            createUnityInstance(canvas, config, (progress) => {
-                progressBarFull.style.width = 100 * progress + "%";
-            }).then((unityInstance) => {
-                loadingBar.style.display = "none";
-                fullscreenButton.onclick = () => {
-                    unityInstance.SetFullscreen(1);
-                };
-            }).catch((message) => {
-                alert(message);
+            // Generate a random ID if room is not specified
+            roomId = roomInput.value.trim() || generateRoomId();
+            
+            joinStatus.textContent = 'Connecting...';
+            
+            // Initialize PeerJS
+            const peerId = `${roomId}-${userName}-${Math.random().toString(36).substring(2, 8)}`;
+            peer = new Peer(peerId);
+            
+            peer.on('open', (id) => {
+                // Successfully connected to PeerJS server
+                joinRoom();
             });
-        };
-        document.body.appendChild(script);
+            
+            peer.on('error', (err) => {
+                console.error('PeerJS error:', err);
+                joinStatus.textContent = `Error: ${err.type}`;
+            });
+        });
+
+        // Generate a random room ID
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 8);
+        }
+
+        // Join the room
+        function joinRoom() {
+            // Access user's microphone
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                .then((stream) => {
+                    localStream = stream;
+                    
+                    // Show room interface
+                    joinArea.classList.add('hidden');
+                    roomArea.classList.remove('hidden');
+                    roomIdDisplay.textContent = roomId;
+                    
+                    // Add ourselves to the participants list
+                    addParticipant(userName, true);
+                    
+                    // Listen for incoming connections
+                    setupPeerListeners();
+                    
+                    // Connect to existing peers in the room
+                    connectToRoom();
+                })
+                .catch((err) => {
+                    console.error('Failed to get local stream', err);
+                    joinStatus.textContent = 'Failed to access microphone. Please allow microphone access.';
+                });
+        }
+
+        // Connect to existing peers in the room
+        function connectToRoom() {
+            // List all peers to find others in the same room
+            fetch(`https://peerjs-server.herokuapp.com/peerjs/peers`)
+                .then(response => response.json())
+                .catch(() => []) // Fallback if the request fails
+                .then(peerIds => {
+                    // Filter peers in the same room (that start with roomId)
+                    const roomPeers = peerIds.filter(id => 
+                        id !== peer.id && id.startsWith(`${roomId}-`));
+                    
+                    // Connect to each peer in the room
+                    roomPeers.forEach(peerId => {
+                        connectToPeer(peerId);
+                    });
+                });
+        }
+
+        // Connect to a specific peer
+        function connectToPeer(peerId) {
+            // Extract the username from the peer ID
+            const peerName = peerId.split('-')[1];
+            
+            // Create a data connection
+            const conn = peer.connect(peerId);
+            
+            conn.on('open', () => {
+                connections[peerId] = conn;
+                
+                // Send our username
+                conn.send({ type: 'user-info', name: userName });
+                
+                // Call the connected peer
+                const call = peer.call(peerId, localStream);
+                setupCallListeners(call, peerName);
+            });
+        }
+
+        // Set up listeners for the Peer object
+        function setupPeerListeners() {
+            // Handle incoming data connections
+            peer.on('connection', (conn) => {
+                const peerId = conn.peer;
+                connections[peerId] = conn;
+                
+                conn.on('open', () => {
+                    conn.on('data', (data) => {
+                        if (data.type === 'user-info') {
+                            addParticipant(data.name);
+                        }
+                    });
+                });
+                
+                conn.on('close', () => {
+                    delete connections[peerId];
+                });
+            });
+            
+            // Handle incoming calls
+            peer.on('call', (call) => {
+                call.answer(localStream);
+                
+                // Extract the username from the caller's peer ID
+                const callerName = call.peer.split('-')[1];
+                setupCallListeners(call, callerName);
+            });
+        }
+
+        // Set up listeners for a call
+        function setupCallListeners(call, peerName) {
+            call.on('stream', (remoteStream) => {
+                // Create an audio element for the remote stream
+                if (!audioElements[call.peer]) {
+                    const audio = document.createElement('audio');
+                    audio.srcObject = remoteStream;
+                    audio.autoplay = true;
+                    audio.id = `audio-${call.peer}`;
+                    document.body.appendChild(audio);
+                    
+                    audioElements[call.peer] = audio;
+                    addParticipant(peerName);
+                }
+            });
+            
+            call.on('close', () => {
+                if (audioElements[call.peer]) {
+                    audioElements[call.peer].remove();
+                    delete audioElements[call.peer];
+                }
+                removeParticipant(peerName);
+            });
+        }
+
+        // Add a participant to the list
+        function addParticipant(name, isLocal = false) {
+            // Check if participant already exists
+            if (document.getElementById(`participant-${name}`)) {
+                return;
+            }
+            
+            const participant = document.createElement('div');
+            participant.className = 'participant';
+            participant.id = `participant-${name}`;
+            
+            const status = document.createElement('div');
+            status.className = 'participant-status';
+            
+            const nameElem = document.createElement('div');
+            nameElem.className = 'participant-name';
+            nameElem.textContent = isLocal ? `${name} (You)` : name;
+            
+            participant.appendChild(status);
+            participant.appendChild(nameElem);
+            participantsList.appendChild(participant);
+        }
+
+        // Remove a participant from the list
+        function removeParticipant(name) {
+            const participant = document.getElementById(`participant-${name}`);
+            if (participant) {
+                participant.remove();
+            }
+        }
+
+        // Toggle mute state
+        muteBtn.addEventListener('click', () => {
+            if (localStream) {
+                const audioTracks = localStream.getAudioTracks();
+                audioTracks.forEach(track => {
+                    track.enabled = isMuted;
+                });
+                
+                isMuted = !isMuted;
+                muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+            }
+        });
+
+        // Leave the room
+        leaveBtn.addEventListener('click', () => {
+            // Close all connections
+            Object.values(connections).forEach(conn => conn.close());
+            
+            // Stop all audio tracks
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Remove all audio elements
+            Object.values(audioElements).forEach(audio => audio.remove());
+            
+            // Close the peer connection
+            if (peer) {
+                peer.destroy();
+            }
+            
+            // Reset variables
+            connections = {};
+            audioElements = {};
+            
+            // Show join interface
+            roomArea.classList.add('hidden');
+            joinArea.classList.remove('hidden');
+            joinStatus.textContent = '';
+            participantsList.innerHTML = '';
+            isMuted = false;
+        });
     </script>
 </body>
 </html>
