@@ -130,7 +130,7 @@
     </div>
 
     <script>
-        // DOM Elements
+          // DOM Elements (unchanged)
         const nameInput = document.getElementById('nameInput');
         const roomInput = document.getElementById('roomInput');
         const joinBtn = document.getElementById('joinBtn');
@@ -141,6 +141,14 @@
         const muteBtn = document.getElementById('muteBtn');
         const leaveBtn = document.getElementById('leaveBtn');
         const participantsList = document.getElementById('participantsList');
+
+        // Updated configuration
+        const config = {
+            host: '0.peerjs.com',
+            port: 443,
+            secure: true,
+            pingInterval: 5000
+        };
 
         // Variables
         let peer;
@@ -153,7 +161,7 @@
         let peerCheckInterval;
 
         // Join or create a room
-        joinBtn.addEventListener('click', () => {
+        joinBtn.addEventListener('click', async () => {
             userName = nameInput.value.trim();
             if (!userName) {
                 joinStatus.textContent = 'Please enter your name';
@@ -162,84 +170,129 @@
 
             roomId = roomInput.value.trim() || generateRoomId();
             joinStatus.textContent = 'Connecting...';
-            
-            const peerId = `${roomId}-${userName}-${Math.random().toString(36).substring(2, 8)}`;
-            peer = new Peer(peerId);
-            
-            peer.on('open', (id) => {
-                joinRoom();
-            });
-            
-            peer.on('error', (err) => {
-                console.error('PeerJS error:', err);
-                joinStatus.textContent = `Error: ${err.type}`;
-            });
+
+            try {
+                // Initialize PeerJS with proper configuration
+                peer = new Peer({
+                    config,
+                    debug: 3
+                });
+
+                peer.on('open', (id) => {
+                    console.log('PeerJS connected with ID:', id);
+                    joinRoom();
+                });
+
+                peer.on('error', (err) => {
+                    console.error('PeerJS error:', err);
+                    joinStatus.textContent = `Error: ${err.message}`;
+                });
+
+            } catch (error) {
+                console.error('Peer initialization failed:', error);
+                joinStatus.textContent = 'Connection failed. Please try again.';
+            }
         });
 
         function generateRoomId() {
             return Math.random().toString(36).substring(2, 8);
         }
 
-        function joinRoom() {
-            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-                .then((stream) => {
-                    localStream = stream;
-                    joinArea.classList.add('hidden');
-                    roomArea.classList.remove('hidden');
-                    roomIdDisplay.textContent = roomId;
-                    addParticipant(userName, true);
-                    setupPeerListeners();
-                    connectToRoom();
-                })
-                .catch((err) => {
-                    console.error('Failed to get local stream', err);
-                    joinStatus.textContent = 'Failed to access microphone. Please allow microphone access.';
+        async function joinRoom() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true, 
+                    video: false 
                 });
+                
+                joinArea.classList.add('hidden');
+                roomArea.classList.remove('hidden');
+                roomIdDisplay.textContent = roomId;
+                addParticipant(userName, true);
+                
+                setupPeerListeners();
+                connectToRoom();
+
+            } catch (err) {
+                console.error('Media access error:', err);
+                joinStatus.textContent = 'Microphone access required. Please allow permissions.';
+            }
         }
 
         function connectToRoom() {
-            const checkPeers = () => {
-                fetch(`https://peerjs-server.herokuapp.com/peerjs/peers`)
-                    .then(response => response.json())
-                    .catch(() => [])
-                    .then(peerIds => {
-                        const roomPeers = peerIds.filter(id => 
-                            id !== peer.id && id.startsWith(`${roomId}-`));
-                        
-                        roomPeers.forEach(peerId => {
-                            if (!connections[peerId]) {
-                                connectToPeer(peerId);
-                            }
-                        });
+            const checkPeers = async () => {
+                try {
+                    // Get list of all peers from the server
+                    const peers = await peer.listAllPeers();
+                    console.log('Available peers:', peers);
+
+                    // Filter peers in the same room
+                    const roomPeers = peers.filter(peerId => {
+                        return peerId !== peer.id && 
+                               peerId.startsWith(`${roomId}-`);
                     });
+
+                    console.log('Room peers:', roomPeers);
+                    
+                    // Connect to new peers
+                    roomPeers.forEach(peerId => {
+                        if (!connections[peerId]) {
+                            console.log('Connecting to new peer:', peerId);
+                            connectToPeer(peerId);
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('Peer discovery error:', error);
+                }
             };
 
+            // Initial check and periodic checks
             checkPeers();
-            peerCheckInterval = setInterval(checkPeers, 3000);
+            peerCheckInterval = setInterval(checkPeers, 2000);
         }
 
         function connectToPeer(peerId) {
             if (connections[peerId]) return;
-            
-            const peerName = peerId.split('-')[1];
-            const conn = peer.connect(peerId);
-            
+
+            const conn = peer.connect(peerId, {
+                reliable: true,
+                serialization: 'json'
+            });
+
+            connections[peerId] = conn;
+
             conn.on('open', () => {
-                connections[peerId] = conn;
+                console.log('Data connection established with:', peerId);
+                // Send user info immediately
                 conn.send({ type: 'user-info', name: userName });
+                // Initiate media call
                 const call = peer.call(peerId, localStream);
-                setupCallListeners(call, peerName);
+                setupCallListeners(call, peerId);
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'user-info') {
+                    console.log('Received user info:', data.name);
+                    addParticipant(data.name);
+                }
             });
 
             conn.on('close', () => {
-                delete connections[peerId];
+                console.log('Connection closed:', peerId);
+                handlePeerDisconnection(peerId);
+            });
+
+            conn.on('error', (error) => {
+                console.error('Connection error:', error);
+                handlePeerDisconnection(peerId);
             });
         }
 
         function setupPeerListeners() {
+            // Handle incoming data connections
             peer.on('connection', (conn) => {
-                const peerId = conn.peer;
-                connections[peerId] = conn;
+                console.log('Incoming connection from:', conn.peer);
                 
                 conn.on('open', () => {
                     conn.on('data', (data) => {
@@ -248,42 +301,49 @@
                         }
                     });
                 });
-                
-                conn.on('close', () => {
-                    delete connections[peerId];
-                });
+
+                conn.on('close', () => handlePeerDisconnection(conn.peer));
+                conn.on('error', () => handlePeerDisconnection(conn.peer));
             });
-            
+
+            // Handle incoming calls
             peer.on('call', (call) => {
+                console.log('Incoming call from:', call.peer);
                 call.answer(localStream);
-                const callerName = call.peer.split('-')[1];
-                setupCallListeners(call, callerName);
+                setupCallListeners(call, call.peer);
             });
         }
 
-        function setupCallListeners(call, peerName) {
+        function setupCallListeners(call, peerId) {
             call.on('stream', (remoteStream) => {
-                if (!audioElements[call.peer]) {
+                console.log('Received stream from:', peerId);
+                if (!audioElements[peerId]) {
                     const audio = document.createElement('audio');
                     audio.srcObject = remoteStream;
                     audio.autoplay = true;
-                    audio.id = `audio-${call.peer}`;
+                    audio.id = `audio-${peerId}`;
                     document.body.appendChild(audio);
-                    
-                    audioElements[call.peer] = audio;
-                    addParticipant(peerName);
+                    audioElements[peerId] = audio;
                 }
             });
-            
-            call.on('close', () => {
-                if (audioElements[call.peer]) {
-                    audioElements[call.peer].remove();
-                    delete audioElements[call.peer];
-                }
-                removeParticipant(peerName);
-            });
+
+            call.on('close', () => handlePeerDisconnection(peerId));
+            call.on('error', () => handlePeerDisconnection(peerId));
         }
 
+        function handlePeerDisconnection(peerId) {
+            console.log('Handling disconnection for:', peerId);
+            if (audioElements[peerId]) {
+                audioElements[peerId].remove();
+                delete audioElements[peerId];
+            }
+            if (connections[peerId]) {
+                delete connections[peerId];
+            }
+            removeParticipant(peerId.split('-')[1]);
+        }
+
+        // Keep the same addParticipant and removeParticipant functions
         function addParticipant(name, isLocal = false) {
             if (document.getElementById(`participant-${name}`)) return;
             
@@ -308,13 +368,13 @@
             if (participant) participant.remove();
         }
 
+        // Keep the same mute and leave functionality
         muteBtn.addEventListener('click', () => {
             if (localStream) {
                 const audioTracks = localStream.getAudioTracks();
                 audioTracks.forEach(track => {
                     track.enabled = isMuted;
                 });
-                
                 isMuted = !isMuted;
                 muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
             }
@@ -330,7 +390,6 @@
             audioElements = {};
             roomArea.classList.add('hidden');
             joinArea.classList.remove('hidden');
-            joinStatus.textContent = '';
             participantsList.innerHTML = '';
             isMuted = false;
         });
