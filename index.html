@@ -6,6 +6,7 @@
     <title>Voice Chat Room</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
     <style>
+        /* CSS remains unchanged from original */
         body {
             font-family: Arial, sans-serif;
             max-width: 600px;
@@ -93,6 +94,7 @@
     </style>
 </head>
 <body>
+    <!-- HTML structure remains unchanged -->
     <div class="container">
         <h1>Voice Chat Room</h1>
         
@@ -148,6 +150,7 @@
         let connections = {};
         let audioElements = {};
         let isMuted = false;
+        let peerCheckInterval;
 
         // Join or create a room
         joinBtn.addEventListener('click', () => {
@@ -157,17 +160,13 @@
                 return;
             }
 
-            // Generate a random ID if room is not specified
             roomId = roomInput.value.trim() || generateRoomId();
-            
             joinStatus.textContent = 'Connecting...';
             
-            // Initialize PeerJS
             const peerId = `${roomId}-${userName}-${Math.random().toString(36).substring(2, 8)}`;
             peer = new Peer(peerId);
             
             peer.on('open', (id) => {
-                // Successfully connected to PeerJS server
                 joinRoom();
             });
             
@@ -177,30 +176,19 @@
             });
         });
 
-        // Generate a random room ID
         function generateRoomId() {
             return Math.random().toString(36).substring(2, 8);
         }
 
-        // Join the room
         function joinRoom() {
-            // Access user's microphone
             navigator.mediaDevices.getUserMedia({ audio: true, video: false })
                 .then((stream) => {
                     localStream = stream;
-                    
-                    // Show room interface
                     joinArea.classList.add('hidden');
                     roomArea.classList.remove('hidden');
                     roomIdDisplay.textContent = roomId;
-                    
-                    // Add ourselves to the participants list
                     addParticipant(userName, true);
-                    
-                    // Listen for incoming connections
                     setupPeerListeners();
-                    
-                    // Connect to existing peers in the room
                     connectToRoom();
                 })
                 .catch((err) => {
@@ -209,47 +197,46 @@
                 });
         }
 
-        // Connect to existing peers in the room
         function connectToRoom() {
-            // List all peers to find others in the same room
-            fetch(`https://peerjs-server.herokuapp.com/peerjs/peers`)
-                .then(response => response.json())
-                .catch(() => []) // Fallback if the request fails
-                .then(peerIds => {
-                    // Filter peers in the same room (that start with roomId)
-                    const roomPeers = peerIds.filter(id => 
-                        id !== peer.id && id.startsWith(`${roomId}-`));
-                    
-                    // Connect to each peer in the room
-                    roomPeers.forEach(peerId => {
-                        connectToPeer(peerId);
+            const checkPeers = () => {
+                fetch(`https://peerjs-server.herokuapp.com/peerjs/peers`)
+                    .then(response => response.json())
+                    .catch(() => [])
+                    .then(peerIds => {
+                        const roomPeers = peerIds.filter(id => 
+                            id !== peer.id && id.startsWith(`${roomId}-`));
+                        
+                        roomPeers.forEach(peerId => {
+                            if (!connections[peerId]) {
+                                connectToPeer(peerId);
+                            }
+                        });
                     });
-                });
+            };
+
+            checkPeers();
+            peerCheckInterval = setInterval(checkPeers, 3000);
         }
 
-        // Connect to a specific peer
         function connectToPeer(peerId) {
-            // Extract the username from the peer ID
-            const peerName = peerId.split('-')[1];
+            if (connections[peerId]) return;
             
-            // Create a data connection
+            const peerName = peerId.split('-')[1];
             const conn = peer.connect(peerId);
             
             conn.on('open', () => {
                 connections[peerId] = conn;
-                
-                // Send our username
                 conn.send({ type: 'user-info', name: userName });
-                
-                // Call the connected peer
                 const call = peer.call(peerId, localStream);
                 setupCallListeners(call, peerName);
             });
+
+            conn.on('close', () => {
+                delete connections[peerId];
+            });
         }
 
-        // Set up listeners for the Peer object
         function setupPeerListeners() {
-            // Handle incoming data connections
             peer.on('connection', (conn) => {
                 const peerId = conn.peer;
                 connections[peerId] = conn;
@@ -267,20 +254,15 @@
                 });
             });
             
-            // Handle incoming calls
             peer.on('call', (call) => {
                 call.answer(localStream);
-                
-                // Extract the username from the caller's peer ID
                 const callerName = call.peer.split('-')[1];
                 setupCallListeners(call, callerName);
             });
         }
 
-        // Set up listeners for a call
         function setupCallListeners(call, peerName) {
             call.on('stream', (remoteStream) => {
-                // Create an audio element for the remote stream
                 if (!audioElements[call.peer]) {
                     const audio = document.createElement('audio');
                     audio.srcObject = remoteStream;
@@ -302,12 +284,8 @@
             });
         }
 
-        // Add a participant to the list
         function addParticipant(name, isLocal = false) {
-            // Check if participant already exists
-            if (document.getElementById(`participant-${name}`)) {
-                return;
-            }
+            if (document.getElementById(`participant-${name}`)) return;
             
             const participant = document.createElement('div');
             participant.className = 'participant';
@@ -325,15 +303,11 @@
             participantsList.appendChild(participant);
         }
 
-        // Remove a participant from the list
         function removeParticipant(name) {
             const participant = document.getElementById(`participant-${name}`);
-            if (participant) {
-                participant.remove();
-            }
+            if (participant) participant.remove();
         }
 
-        // Toggle mute state
         muteBtn.addEventListener('click', () => {
             if (localStream) {
                 const audioTracks = localStream.getAudioTracks();
@@ -346,29 +320,14 @@
             }
         });
 
-        // Leave the room
         leaveBtn.addEventListener('click', () => {
-            // Close all connections
+            if (peerCheckInterval) clearInterval(peerCheckInterval);
             Object.values(connections).forEach(conn => conn.close());
-            
-            // Stop all audio tracks
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            
-            // Remove all audio elements
+            if (localStream) localStream.getTracks().forEach(track => track.stop());
             Object.values(audioElements).forEach(audio => audio.remove());
-            
-            // Close the peer connection
-            if (peer) {
-                peer.destroy();
-            }
-            
-            // Reset variables
+            if (peer) peer.destroy();
             connections = {};
             audioElements = {};
-            
-            // Show join interface
             roomArea.classList.add('hidden');
             joinArea.classList.remove('hidden');
             joinStatus.textContent = '';
